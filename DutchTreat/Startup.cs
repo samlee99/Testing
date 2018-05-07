@@ -1,10 +1,12 @@
-﻿using DutchTreat.Data;
+﻿using AutoMapper;
+using DutchTreat.Data;
 using DutchTreat.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 
 namespace DutchTreat
 {
@@ -26,11 +28,18 @@ namespace DutchTreat
                 cfg.UseSqlServer(_config.GetConnectionString("DutchConnectionString"));
             });
 
+            services.AddAutoMapper();
+
             services.AddTransient<IMailService, NullMailService>();
+
+            services.AddTransient<DutchSeeder>();
+
+            services.AddScoped<IDutchRepository, DutchRepository>();
 
             // Support for real mail service
 
-            services.AddMvc();
+            services.AddMvc()
+                .AddJsonOptions(opt => opt.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -53,6 +62,15 @@ namespace DutchTreat
                     "{controller}/{action}/{id?}",
                     new { controller = "App", Action = "Index" });
             });
+
+            if (env.IsDevelopment())
+            {
+                using (var scope = app.ApplicationServices.CreateScope())
+                {
+                    var seeder = scope.ServiceProvider.GetService<DutchSeeder>();
+                    seeder.Seed();
+                }
+            }
 
             //app.Run(async (context) =>
             //{
